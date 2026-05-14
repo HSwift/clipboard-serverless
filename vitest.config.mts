@@ -5,6 +5,17 @@ export default defineWorkersConfig({
 		poolOptions: {
 			workers: {
 				wrangler: { configPath: "./wrangler.jsonc" },
+				miniflare: {
+					bindings: {
+						AUTH_TOKEN: "test-secret-token",
+					},
+					kvNamespaces: {
+						CLIPBOARD: "test-clipboard-kv",
+					},
+					r2Buckets: {
+						CLIPBOARD_BUCKET: "test-clipboard-bucket",
+					},
+				},
 			},
 		},
 	},

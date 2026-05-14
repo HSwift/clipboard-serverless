@@ -1,0 +1,42 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "clipboard-serverless",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-05-10",
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+
+	"assets": {
+		"directory": "./public/",
+		"binding": "ASSETS",
+		"run_worker_first": ["/api/*", "/s/*"]
+	},
+
+	"kv_namespaces": [
+		{
+			"binding": "CLIPBOARD",
+			"id": "<YOUR_KV_NAMESPACE_ID>"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "CLIPBOARD_BUCKET",
+			"bucket_name": "clipboard-serverless"
+		}
+	],
+	"vars": {
+		"MAX_CLIPS": "500",
+		"DEFAULT_TTL_DAYS": "30"
+	},
+	"triggers": {
+		"crons": [
+			"0 3 * * *"
+		]
+	}
+	// AUTH_TOKEN is set via: npx wrangler secret put AUTH_TOKEN
+}

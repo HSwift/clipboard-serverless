@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --border: #333;
+  --text: #e8e8e8;
+  --text2: #888;
+  --accent: #6c9eff;
+  --accent-dim: #3a5a9e;
+  --danger: #e05555;
+  --success: #4caf80;
+  --radius: 10px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100dvh;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+header h1 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.token-area {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.token-area input {
+  width: 180px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: var(--mono);
+  outline: none;
+}
+
+.token-area input:focus { border-color: var(--accent); }
+
+/* Upload area */
+.upload {
+  background: var(--surface);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+  text-align: center;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.upload.dragover { border-color: var(--accent); }
+
+.upload p { color: var(--text2); font-size: 0.9rem; margin-bottom: 12px; }
+
+.upload-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  resize: vertical;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+textarea:focus { border-color: var(--accent); }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: var(--font);
+}
+
+.btn:hover { opacity: 0.85; }
+.btn:active { opacity: 0.7; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-ghost { background: var(--surface2); color: var(--text); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+
+/* Clip list */
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.clip-list { display: flex; flex-direction: column; gap: 8px; }
+
+.clip-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: border-color 0.15s;
+}
+
+.clip-item:hover { border-color: var(--accent-dim); }
+
+.clip-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.clip-body { flex: 1; min-width: 0; }
+
+.clip-preview {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.clip-meta {
+  font-size: 0.72rem;
+  color: var(--text2);
+  margin-top: 3px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.clip-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Share modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+}
+
+.modal h3 { margin-bottom: 12px; font-size: 1rem; }
+
+.modal input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.empty { text-align: center; color: var(--text2); padding: 40px 0; font-size: 0.9rem; }
+
+.loading { text-align: center; color: var(--text2); padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>&#128203; Clipboard</h1>
+    <div class="token-area">
+      <input type="password" id="tokenInput" placeholder="Bearer Token" />
+    </div>
+  </header>
+
+  <div class="upload" id="dropZone">
+    <p>拖拽文件到此处，或粘贴文字后上传</p>
+    <textarea id="textInput" placeholder="在此输入文字..."></textarea>
+    <div class="upload-actions">
+      <button class="btn btn-primary" id="btnUploadText">上传文字</button>
+      <label class="btn btn-ghost">
+        选择文件
+        <input type="file" id="fileInput" hidden />
+      </label>
+    </div>
+  </div>
+
+  <div class="section-title">剪贴板列表</div>
+  <div id="clipList" class="clip-list">
+    <div class="empty">输入 Token 后加载</div>
+  </div>
+
+  <div style="text-align:center;margin-top:16px;">
+    <button class="btn btn-ghost btn-sm" id="btnLoadMore" style="display:none;">加载更多</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="shareModal">
+  <div class="modal">
+    <h3>分享链接</h3>
+    <input type="text" id="shareUrl" readonly />
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCopyShare">复制</button>
+      <button class="btn btn-ghost" id="btnCloseModal">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const tokenInput = $('#tokenInput');
+const textInput = $('#textInput');
+const fileInput = $('#fileInput');
+const clipList = $('#clipList');
+const dropZone = $('#dropZone');
+const btnLoadMore = $('#btnLoadMore');
+
+let lastClipId = null;
+
+const saved = localStorage.getItem('cb_token');
+if (saved) tokenInput.value = saved;
+
+function headers(extra = {}) {
+  return { Authorization: `Bearer ${tokenInput.value}`, ...extra };
+}
+
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function typeIcon(type) {
+  if (type.startsWith('image/')) return '\u{1F5BC}';
+  if (type.startsWith('text/')) return '\u{1F4DD}';
+  if (type.includes('pdf')) return '\u{1F4C4}';
+  return '\u{1F4CE}';
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function fmtTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now.getTime() - ts;
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+  return d.toLocaleDateString('zh-CN');
+}
+
+function renderClip(clip) {
+  const el = document.createElement('div');
+  el.className = 'clip-item';
+  const preview = clip.filename || (clip.type.startsWith('text/') ? `${fmtSize(clip.size)} 文字` : clip.type);
+  el.innerHTML = `
+    <div class="clip-icon">${typeIcon(clip.type)}</div>
+    <div class="clip-body">
+      <div class="clip-preview">${escHtml(preview)}</div>
+      <div class="clip-meta">
+        <span>${clip.device}</span>
+        <span>${fmtSize(clip.size)}</span>
+        <span>${fmtTime(clip.createdAt)}</span>
+      </div>
+    </div>
+    <div class="clip-actions">
+      <button class="btn btn-ghost btn-sm" data-action="download" data-id="${clip.id}" title="下载">&#8595;</button>
+      <button class="btn btn-ghost btn-sm" data-action="share" data-id="${clip.id}" title="分享">&#128279;</button>
+      <button class="btn btn-danger btn-sm" data-action="delete" data-id="${clip.id}" title="删除">&times;</button>
+    </div>`;
+  return el;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function loadClips(append = false) {
+  if (!tokenInput.value) return;
+  localStorage.setItem('cb_token', tokenInput.value);
+
+  const params = new URLSearchParams({ limit: '20' });
+  if (append && lastClipId) params.set('before', lastClipId);
+
+  try {
+    const res = await fetch(`/api/clip?${params}`, { headers: headers() });
+    if (res.status === 401) { toast('Token 无效'); return; }
+    const data = await res.json();
+
+    if (!append) clipList.innerHTML = '';
+    if (!append && data.clips.length === 0) {
+      clipList.innerHTML = '<div class="empty">暂无内容</div>';
+      btnLoadMore.style.display = 'none';
+      return;
+    }
+
+    for (const clip of data.clips) {
+      clipList.appendChild(renderClip(clip));
+      lastClipId = clip.id;
+    }
+
+    btnLoadMore.style.display = data.clips.length >= 20 ? '' : 'none';
+  } catch (e) {
+    toast('加载失败: ' + e.message);
+  }
+}
+
+async function uploadText() {
+  const text = textInput.value.trim();
+  if (!text) { toast('请输入文字'); return; }
+
+  try {
+    const res = await fetch('/api/clip', {
+      method: 'POST',
+      headers: headers({ 'Content-Type': 'text/plain', 'X-Device': 'web' }),
+      body: text,
+    });
+    if (!res.ok) { toast('上传失败'); return; }
+    textInput.value = '';
+    toast('已上传');
+    lastClipId = null;
+    loadClips();
+  } catch (e) {
+    toast('上传失败: ' + e.message);
+  }
+}
+
+async function uploadFile(file) {
+  try {
+    const res = await fetch('/api/clip', {
+      method: 'POST',
+      headers: headers({
+        'Content-Type': file.type || 'application/octet-stream',
+        'X-Device': 'web',
+        'X-Filename': file.name,
+      }),
+      body: file,
+    });
+    if (!res.ok) { toast('上传失败'); return; }
+    toast(`已上传: ${file.name}`);
+    lastClipId = null;
+    loadClips();
+  } catch (e) {
+    toast('上传失败: ' + e.message);
+  }
+}
+
+async function downloadClip(id) {
+  try {
+    const res = await fetch(`/api/clip/${id}/raw`, { headers: headers() });
+    if (!res.ok) { toast('下载失败'); return; }
+
+    const ct = res.headers.get('Content-Type') || '';
+    const disp = res.headers.get('Content-Disposition') || '';
+
+    if (ct.startsWith('text/')) {
+      const text = await res.text();
+      await navigator.clipboard.writeText(text);
+      toast('已复制到剪贴板');
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const fnMatch = disp.match(/filename="(.+?)"/);
+    a.download = fnMatch ? fnMatch[1] : 'download';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('下载中...');
+  } catch (e) {
+    toast('下载失败: ' + e.message);
+  }
+}
+
+async function shareClip(id) {
+  try {
+    const res = await fetch(`/api/clip/${id}/share`, {
+      method: 'POST',
+      headers: headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ ttl: 86400 }),
+    });
+    if (!res.ok) { toast('分享失败'); return; }
+    const data = await res.json();
+    $('#shareUrl').value = data.url;
+    $('#shareModal').classList.add('active');
+  } catch (e) {
+    toast('分享失败: ' + e.message);
+  }
+}
+
+async function deleteClip(id) {
+  if (!confirm('确定删除？')) return;
+  try {
+    const res = await fetch(`/api/clip/${id}`, {
+      method: 'DELETE',
+      headers: headers(),
+    });
+    if (!res.ok) { toast('删除失败'); return; }
+    toast('已删除');
+    lastClipId = null;
+    loadClips();
+  } catch (e) {
+    toast('删除失败: ' + e.message);
+  }
+}
+
+// Event listeners
+$('#btnUploadText').addEventListener('click', uploadText);
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+  fileInput.value = '';
+});
+btnLoadMore.addEventListener('click', () => loadClips(true));
+
+clipList.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const { action, id } = btn.dataset;
+  if (action === 'download') downloadClip(id);
+  else if (action === 'share') shareClip(id);
+  else if (action === 'delete') deleteClip(id);
+});
+
+$('#btnCopyShare').addEventListener('click', () => {
+  navigator.clipboard.writeText($('#shareUrl').value);
+  toast('已复制');
+});
+$('#btnCloseModal').addEventListener('click', () => {
+  $('#shareModal').classList.remove('active');
+});
+$('#shareModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) $('#shareModal').classList.remove('active');
+});
+
+tokenInput.addEventListener('change', () => {
+  lastClipId = null;
+  loadClips();
+});
+
+// Drag & drop
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+});
+
+// Paste
+document.addEventListener('paste', (e) => {
+  if (document.activeElement === textInput) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.kind === 'file') {
+      const file = item.getAsFile();
+      if (file) { uploadFile(file); return; }
+    }
+  }
+  const text = e.clipboardData.getData('text');
+  if (text) {
+    textInput.value = text;
+    toast('已粘贴，点击上传按钮提交');
+  }
+});
+
+// Auto-load
+if (tokenInput.value) loadClips();
+</script>
+</body>
+</html>
