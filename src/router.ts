@@ -4,6 +4,7 @@ interface Route {
 	method: string;
 	pattern: RegExp;
 	paramNames: string[];
+	staticSegmentCount: number;
 	handler: Handler;
 }
 
@@ -20,6 +21,7 @@ export class Router {
 			method,
 			pattern: new RegExp(`^${pattern}$`),
 			paramNames,
+			staticSegmentCount: path.split('/').filter((segment) => segment && !segment.startsWith(':')).length,
 			handler,
 		});
 	}
@@ -35,16 +37,24 @@ export class Router {
 	}
 
 	match(method: string, pathname: string): { handler: Handler; params: Record<string, string> } | null {
+		let bestMatch: { route: Route; match: RegExpMatchArray } | null = null;
+
 		for (const route of this.routes) {
 			if (route.method !== method) continue;
 			const m = pathname.match(route.pattern);
 			if (!m) continue;
-			const params: Record<string, string> = {};
-			route.paramNames.forEach((name, i) => {
-				params[name] = m[i + 1];
-			});
-			return { handler: route.handler, params };
+
+			if (!bestMatch || route.staticSegmentCount > bestMatch.route.staticSegmentCount) {
+				bestMatch = { route, match: m };
+			}
 		}
-		return null;
+
+		if (!bestMatch) return null;
+
+		const params: Record<string, string> = {};
+		bestMatch.route.paramNames.forEach((name, i) => {
+			params[name] = bestMatch.match[i + 1];
+		});
+		return { handler: bestMatch.route.handler, params };
 	}
 }
